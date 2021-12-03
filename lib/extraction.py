@@ -109,14 +109,14 @@ def get_pub_links(entry: dict,
                        max_age)
 
     # feedback for the user of the search progress
-    write_in_logs('informations',
-                  'Recherches à effectuer sur PubMed : ' + str(queries),
-                  glob_stop)
-    write_in_logs('informations', 'Mot clés enregistrés', glob_stop)
-    if not glob_stop:
-        indicateurs_loading['ind_mot_cles'].select()
-        # Bar de chargement à 5%
-        indicateurs_loading['progress_bar']['value'] = 5
+    # write_in_logs('informations',
+    #               'Recherches à effectuer sur PubMed : ' + str(queries),
+    #               glob_stop)
+    # write_in_logs('informations', 'Mot clés enregistrés', glob_stop)
+    # if not glob_stop:
+    #     indicateurs_loading['ind_mot_cles'].select()
+    #     # Bar de chargement à 5%
+    #     indicateurs_loading['progress_bar']['value'] = 5
 
     links = []
     page_counter = 0
@@ -147,11 +147,11 @@ def get_pub_links(entry: dict,
             min(nbr_of_results, max_articles) / 200
         )
 
-        write_in_logs('informations',
-                      'Recherche effectuée sur PubMed avec une limite de '
-                      f'{max_articles} articles et un âge maximal de '
-                      f'{max_age if max_age!=0 else "--" } ans',
-                      glob_stop)
+        # write_in_logs('informations',
+        #               'Recherche effectuée sur PubMed avec une limite de '
+        #               f'{max_articles} articles et un âge maximal de '
+        #               f'{max_age if max_age!=0 else "--" } ans',
+        #               glob_stop)
         # last search query finished: update indicator
         if query == queries[-1] and not glob_stop:
             indicateurs_loading['ind_recherche_pubmed'].select()
@@ -174,9 +174,10 @@ def get_pub_links(entry: dict,
                 soup = BeautifulSoup(page.content, 'html.parser')
             # any error occurred: warn user
             except Exception:
-                write_in_logs('erreurs',
-                              'Chargement d\'une page impossible',
-                              glob_stop)
+                # write_in_logs('erreurs',
+                #               'Chargement d\'une page impossible',
+                #               glob_stop)
+                print("Chargement d'une page incomplète")
             # get the urls of the pages and add them to the result
             pages_awaiting = soup.select('a.docsum-title')
             for page in pages_awaiting:

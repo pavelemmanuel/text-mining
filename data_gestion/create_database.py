@@ -1,5 +1,5 @@
 import sqlite3
-from data_gestion.gestion.data_gestion import *
+from gestion.data_gestion import *
 
 def create_table(conn, create_table_sql):
     """ create a table from the create_table_sql statement

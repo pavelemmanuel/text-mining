@@ -34,7 +34,7 @@ def creation_dict_keywords():
         dict keywords: Dictionnary associating categories with its keywords
     """
     keywords={}
-    conn=create_connection("./data.db")#récupération des données dans la base de donnée
+    conn=create_connection("./data.db")#récupépip install stanzaration des données dans la base de donnée
     categories = [(categorie[1],categorie[2]) for categorie in get_categories(conn)]
     for category in categories:
         conn=create_connection("./data.db")

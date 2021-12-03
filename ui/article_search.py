@@ -14,20 +14,14 @@ import tkinter as tk
 
 class ArticleSearch():
 
-    def __init__(self):
+    def __init__(self , article_age_var : int = 0 , pubmed_limt : int = 1000):
 
         self.glob_stop = False
 
         # common elements
-        self.article_age_var = 10 #durée de la recherche [1-5-10-0]
+        self.article_age_var = article_age_var #durée de la recherche [1-5-10-0]
         self.progress_indicators = {} #s'allume
-        self.pubmed_limit = 1000 #limite d'articlee
-
-        # create UI elements
-        # self.create_search_bars()
-        # self.create_progress_info()
-        # create_logs()
-        # self.create_menu_bar()
+        self.pubmed_limit = pubmed_limt #limite d'articlee
 
 # ============================================================================
 # INPUT PROCESSING
@@ -47,11 +41,12 @@ class ArticleSearch():
             'keywords': args.replace(' ', '').split('/'),
         }
 
-        x = threading.Thread(target=self.traitement_recherche,
-                             args=[entry],
-                             daemon=True)
+        # x = threading.Thread(target=self.traitement_recherche,
+        #                      args=[entry],
+        #                      daemon=True)
 
-        x.start()
+        # x.start()
+        return self.traitement_recherche(entry)
 
     def traitement_recherche(self, entry):
         """
@@ -119,13 +114,13 @@ class ArticleSearch():
 
         links, path, queries = get_pub_links(entry,
                                              self.progress_indicators,
-                                             self.pubmed_limit.get(),
-                                             self.article_age_var.get(),
+                                             self.pubmed_limit,
+                                             self.article_age_var,
                                              call_when_interrupt,
                                              self.glob_stop)
         if links == []:
-            call_when_interrupt('no links')
-            return
+            # call_when_interrupt('no links')
+            return 0
 
         if links not in ['1', '2'] and queries not in ['1', '2']:
             # references of the articles
@@ -189,7 +184,8 @@ class ArticleSearch():
             db.update_request_stage(conn, json.dumps(queries), 2)
            
         #afficher le rapport
-        call_when_interrupt('success')
+        #call_when_interrupt('success')
+        return 1
 
     def get_base_from_queries(self, str_queries: str):
         """
