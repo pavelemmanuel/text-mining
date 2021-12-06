@@ -1,8 +1,9 @@
 import sqlite3
-from gestion.data_gestion import *
+from data_gestion.gestion.data_gestion import *
 
 def create_table(conn, create_table_sql):
     """ create a table from the create_table_sql statement
+
     :param conn: Connection object
     :param create_table_sql: a CREATE TABLE statement
     :return:

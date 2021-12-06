@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from .logs import write_in_logs
+from lib.logs import write_in_logs
 from pdfminer.high_level import extract_text
 import data_gestion.gestion.data_gestion as db
 import math
@@ -49,21 +49,17 @@ def get_element_text(soup: BeautifulSoup, tag: str, class_: str):
 
 
 def get_pub_links(entry: dict,
-                  indicateurs_loading: dict,
                   max_articles: int,
                   max_age: int,
-                  call_when_interrupt,
-                  glob_stop: bool = True) -> tuple:
+                  call_when_interrupt) -> tuple:
     """
     Get url of PubMed articles based on a keyword search
 
     :param entry: baseword and keywords to look for in a document
-    :param indicateurs_loading: visual indicators of search progress
     :param max_articles: maximum number of articles to extract
     :param max_age: maximum age for articles
     :param call_when_interrupt: Function to call when we want to interact with
                                 the user
-    :param glob_stop: whether or not the program was already closed
 
     :returns: list of the article urls, output diretory path and queries
     """
@@ -109,22 +105,13 @@ def get_pub_links(entry: dict,
                        max_age)
 
     # feedback for the user of the search progress
-    # write_in_logs('informations',
-    #               'Recherches à effectuer sur PubMed : ' + str(queries),
-    #               glob_stop)
-    # write_in_logs('informations', 'Mot clés enregistrés', glob_stop)
-    # if not glob_stop:
-    #     indicateurs_loading['ind_mot_cles'].select()
-    #     # Bar de chargement à 5%
-    #     indicateurs_loading['progress_bar']['value'] = 5
+    write_in_logs('informations',
+                  'Recherches à effectuer sur PubMed : ' + str(queries))
+    write_in_logs('informations', 'Mot clés enregistrés')
 
     links = []
     page_counter = 0
     for query in queries:
-        # program is not running anymore: abort
-        if glob_stop:
-            break
-
         # search, request and parse result
         url = 'https://pubmed.ncbi.nlm.nih.gov/'
         params = {
@@ -147,22 +134,13 @@ def get_pub_links(entry: dict,
             min(nbr_of_results, max_articles) / 200
         )
 
-        # write_in_logs('informations',
-        #               'Recherche effectuée sur PubMed avec une limite de '
-        #               f'{max_articles} articles et un âge maximal de '
-        #               f'{max_age if max_age!=0 else "--" } ans',
-        #               glob_stop)
-        # last search query finished: update indicator
-        if query == queries[-1] and not glob_stop:
-            indicateurs_loading['ind_recherche_pubmed'].select()
+        write_in_logs('informations',
+                      'Recherche effectuée sur PubMed avec une limite de '
+                      f'{max_articles} articles et un âge maximal de '
+                      f'{max_age if max_age!=0 else "--" } ans')
 
         for i in range(1, nbr_of_pages+1):
             page_counter += 1
-
-            # update progress bar (only until 20%)
-            if not glob_stop:
-                indicateurs_loading['progress_bar']['value'] = \
-                    5+page_counter*15 / (len(queries)*nbr_of_pages)
 
             # request and parse search page
             try:
@@ -174,10 +152,8 @@ def get_pub_links(entry: dict,
                 soup = BeautifulSoup(page.content, 'html.parser')
             # any error occurred: warn user
             except Exception:
-                # write_in_logs('erreurs',
-                #               'Chargement d\'une page impossible',
-                #               glob_stop)
-                print("Chargement d'une page incomplète")
+                write_in_logs('erreurs',
+                              'Chargement d\'une page impossible')
             # get the urls of the pages and add them to the result
             pages_awaiting = soup.select('a.docsum-title')
             for page in pages_awaiting:
@@ -188,35 +164,24 @@ def get_pub_links(entry: dict,
     links = list(dict.fromkeys(links))
 
     # got more links than allowed: ignore extra links
-    if not glob_stop and len(links) > max_articles:
+    if len(links) > max_articles:
         links = links[:max_articles]
-    # feedback of the progress for the user
-    if not glob_stop:
-        # Bar de chargement à 20% si jamais non atteint
-        indicateurs_loading['progress_bar']['value'] = 20
-        indicateurs_loading['ind_recup_liens'][1].set(
-            'Articles uniques trouvés : '+str(len(links)))
-        indicateurs_loading['ind_recup_liens'][0].select()
+   
     # Nombre de liens obtenus
     write_in_logs('informations',
-                  'Nombre de liens uniques obtenus : ' + str(len(links)),
-                  glob_stop)
+                  'Nombre de liens uniques obtenus : ' + str(len(links)))
 
     # return result
     return links, path, queries
 
 
 def save_pdf_from_links(links: list,
-                        indicateurs_loading: dict,
-                        path: str,
-                        glob_stop: bool = True) -> list:
+                        path: str) -> list:
     """
     Download and save the pdf files of articles from their urls
 
     :param links: list of urls for each article file
-    :param indicateurs_loading: visual indicators of search progress
     :param path: directory of output
-    :param glob_stop: whether or not the program was already closed
 
     :returns: list of informations about each article
     """
@@ -224,9 +189,6 @@ def save_pdf_from_links(links: list,
     index = 0
     download_counter = 0
     for link in links:
-        # program is not running anymore: abort
-        if glob_stop:
-            break
 
         # request and parse pdf url
         page = requests.get(link, headers=HEADER)
@@ -245,15 +207,14 @@ def save_pdf_from_links(links: list,
 
         # publication link found: try to get document page
         if full_publication_link is not None:
-            r = request_pdf(full_publication_link, glob_stop)
+            r = request_pdf(full_publication_link)
 
             # could not get document page: warn user
             if not r[0]:
                 write_in_logs('erreurs',
                               '-->Connection refusée à {}'.format(
                                   full_publication_link
-                              ),
-                              glob_stop)
+                              ))
 
             # got document page: parse and download pdf(s)
             else:
@@ -275,32 +236,21 @@ def save_pdf_from_links(links: list,
                         #testing
                         #pdf_links.append(prelink)
                 for pdf in pdf_links:
-                    worked = download_pdf(pdf, index, path, glob_stop)
+                    worked = download_pdf(pdf, index, path)
                     if worked:
                         result_reference.append((f'article{index}', title, date, link))
                         index += 1
-                        if not glob_stop:
-                            indicateurs_loading['ind_pdf_download'][1].set(
-                                f'Nombre d\'articles téléchargés : {index}'
-                            )
+        
         download_counter += 1
-
-        # Augmentation de la bar de chargement jusqu'à 100%
-        if not glob_stop:
-            indicateurs_loading['progress_bar']['value'] = \
-                20 + download_counter*80/len(links)
-    if not glob_stop:
-        indicateurs_loading['ind_pdf_download'][0].select()
 
     return result_reference
 
 
-def request_pdf(link: str, glob_stop: bool = True, tries: int = 3) -> tuple:
+def request_pdf(link: str, tries: int = 3) -> tuple:
     """
     Make a request for an article pdf
 
     :param link: url of the article pdf
-    :param glob_stop: whether or not the program was already closed
 
     :returns: result of request and page returned
     """
@@ -311,19 +261,18 @@ def request_pdf(link: str, glob_stop: bool = True, tries: int = 3) -> tuple:
         page = requests.get(link, headers=HEADER)
 
         # request successful: log success and return result
-        write_in_logs('erreurs', '->Success !', glob_stop)
+        write_in_logs('erreurs', '->Success !')
         return True, page
 
     # request failed: warn user and try again later
     except Exception:
         write_in_logs('erreurs',
-                      '>Connection refusée à {}, retrying ...'.format(link),
-                      glob_stop)
+                      '>Connection refusée à {}, retrying ...'.format(link))
 
         # not exceeded number of tries: wait before trying again
         if tries > 0:
             time.sleep(9 - 2*tries)
-            return request_pdf(link, glob_stop, tries)
+            return request_pdf(link, tries)
 
     # failure as fallback
     return False, ''
@@ -331,15 +280,13 @@ def request_pdf(link: str, glob_stop: bool = True, tries: int = 3) -> tuple:
 
 def download_pdf(link: str,
                  index: int,
-                 path: str,
-                 glob_stop: bool = True) -> bool:
+                 path: str) -> bool:
     """
     Make the download of an article pdf
 
     :param link: url of the article pdf
     :param index: index of the article
     :param path: directory of output
-    :param glob_stop: whether or not the program was already closed
 
     :returns: result of the download (successful or not)
     """
@@ -349,8 +296,7 @@ def download_pdf(link: str,
     # unsuccessful request: warn user and abort
     except Exception:
         write_in_logs('erreurs',
-                      'Impossible d\'accéder au pdf : ' + link,
-                      glob_stop)
+                      'Impossible d\'accéder au pdf : ' + link)
         return False
 
     # successful request: save file
@@ -374,8 +320,7 @@ def download_pdf(link: str,
         except Exception:
             os.remove(file_path)
             write_in_logs('erreurs',
-                          f'Pdf {index} corrompu, il a été supprimé',
-                          glob_stop)
+                          f'Pdf {index} corrompu, il a été supprimé')
             return False
 
         # save text contents fo the file

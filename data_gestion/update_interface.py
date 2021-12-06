@@ -13,6 +13,7 @@ def sortir():
 def get_catnbr_from_catname(catname : str):
     """
     Get the category number from its full name (nbr -- name)
+
     :param catname: Full Name of the category
     """
     category_number=""
@@ -108,6 +109,7 @@ def load_show_keyword():
 def afficher_keywords(category : str,result_var : tk.StringVar):
     """
     Affiche les keywords associés à la catégorie recherchée
+
     :param category: La catégorie associée à la recherche
     """
     db_file="../data.db"
@@ -258,4 +260,5 @@ def main():
 
     root.mainloop()
 
-main()
+if __name__ == '__main__':
+    main()
