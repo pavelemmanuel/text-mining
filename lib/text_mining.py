@@ -6,11 +6,6 @@ import nltk
 import stanza
 
 
-def check_update():
-    stanza.download('en')
-    nltk.download('punkt')
-
-
 ##
 
 
@@ -60,7 +55,6 @@ def get_word_variants(word: str):
 
 
 def traitement_mining(filename):
-    check_update()
 
     with open(filename, encoding="utf-8") as f:
         text = f.read()
@@ -104,7 +98,7 @@ def extraction_phrases(usable_sents, keywords):
 
 def extraction_methods_and_subjects(extracted_sents):
     conn = create_connection("./data.db")
-    methods = [method[0] for method in get_methods(conn)]
+    methods = get_methods(conn)
     conn = create_connection("./data.db")
     subjects = [subject[0] for subject in get_subjects(conn)]
     conn = create_connection("./data.db")
@@ -118,15 +112,15 @@ def extraction_methods_and_subjects(extracted_sents):
         categorie_id = get_category_id(conn, category_nbr=categorie)
         for sentence in extracted_sents[categorie]:
             sentence['methods'] = []
-            for method in methods:
+            for method in methods[categorie]:
                 for variant in get_word_variants(method):
                     if variant in sentence['sentence']:
-                        sentence['method'].append(variant)
+                        sentence['methods'].append(variant)
             sentence['subjects'] = []
             for subject in subjects:
                 for variant in get_word_variants(subject):
-                    if variant in sentence['sentence']:
-                        sentence[subjects].append(variant)
+                    if f' {variant} ' in sentence['sentence']:
+                        sentence['subjects'].append(variant)
             sentence['in_what'] = ''
             for word in in_what_words:
                 if word in sentence['sentence']:

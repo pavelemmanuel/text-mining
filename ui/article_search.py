@@ -10,6 +10,8 @@ import os
 import json
 import threading
 import tkinter as tk
+import nltk
+import stanza
 
 
 class ArticleSearch():
@@ -18,16 +20,22 @@ class ArticleSearch():
         self.article_age_var = max_age
         self.pubmed_limit = max_articles
         create_logs()
+        self.check_update
+
+    def check_update():
+        stanza.download('en')
+        nltk.download('punkt')
 
 
 # ============================================================================
 # INPUT PROCESSING
 # ============================================================================
 
+
     def traitement_recherche(self, entry):
         """
         """
-        def call_when_interrupt(reason: str, request_id: Integer = None ,  **kwargs):
+        def call_when_interrupt(reason: str, request_id : Integer = None,  **kwargs):
             """
             Called when finish to reset the GUI window
 
@@ -37,19 +45,18 @@ class ArticleSearch():
 
             # too bad their is no switch
             if reason == 'success' or reason == 'no link':
-                #TODO: do something when the result is available
-                return request_id
-
+                # TODO: do something when the result is available
+                return { "state" : reason , "request_id" : request_id}
 
             if reason == '0':
-                #TODO: Ask this:
+                # TODO: Ask this:
                 #   'Information',
                 #   'Recherche déjà effectuée mais abandonnée en cours de '
                 #   'processus\n reprise à zéro !'
-                pass
+                return { "state" : reason , "request_id" : request_id}
 
             elif reason == '1':
-                #TODO: Ask this:
+                # TODO: Ask this:
                 #   Attention',
                 #   'La recherche à déjà été effectuée le '
                 #   f'{kwargs["timestamp"]} et les articles sont déjà '
@@ -59,7 +66,7 @@ class ArticleSearch():
                 pass
 
             elif reason == '2':
-                #TODO: Ask this:
+                # TODO: Ask this:
                 #   'Attention',
                 #   'La recherche à déjà été effectuée le '
                 #   f'{kwargs["timestamp"]} et les articles ont déjà '
@@ -112,7 +119,8 @@ class ArticleSearch():
             queries = convert_entry_to_queries(entry)
             conn = db.create_connection("./data.db")
             request_id = db.get_request(conn, json.dumps(queries))[0][0]
-            
+            conn = db.create_connection("./data.db")
+            db.add_category_to_request(conn,request_id)
             for categorie in result.keys():
                 conn = db.create_connection("./data.db")
                 category_id = db.get_category_id(conn,
@@ -128,24 +136,21 @@ class ArticleSearch():
                         date = ligne.iloc[0]['date']
                     if not pd.isnull(ligne.iloc[0]['link']):
                         link = ligne.iloc[0]['link']
-
                     for sentence in result[categorie][article]:
                         conn = db.create_connection("./data.db")
-                        result_id = db.add_result(
-                            conn, sentence['sentence'], title, link,
-                            sentence['value'], sentence['in_what'],
-                            json.dumps(sentence['methods']),
-                            json.dumps(sentence['subjects']))[0][0]
-                        conn = db.create_connection("./data.db")
-                        db.add_category_to_request(conn, request_id,
-                                                   category_id, result_id)
+                        db.add_result(conn, request_id,category_id,sentence['sentence'],
+                                      title, link,
+                                      sentence['value'], sentence['in_what'],
+                                      json.dumps(sentence['methods']),
+                                      json.dumps(sentence['subjects']))[0][0]
 
-            #finished
+            # finished
             conn = db.create_connection("./data.db")
             db.update_request_stage(conn, json.dumps(queries), 2)
 
-        #afficher le rapport
+        # afficher le rapport
         return call_when_interrupt('success' , request_id=request_id)
+
 
     def traitement_mots(self, bw, args):
         """

@@ -19,4 +19,8 @@ class Start():
         :return: Return True when finished
         """
         return self.search.traitement_mots(bw,args)
+
+if __name__ == "__main__":
+   object = Start(0, 10)
+   #object.traitement("benzyl", "alcohol")
     

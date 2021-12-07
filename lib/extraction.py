@@ -77,14 +77,14 @@ def get_pub_links(entry: dict,
         if etape == 0:
             call_when_interrupt("0")
             conn = db.create_connection("./data.db")
-            db.update_request(conn, json.dumps(queries),max_articles,max_age)
+            db.update_request(conn, json.dumps(queries), max_articles, max_age)
         # already downloaded pdfs
         elif etape == 1:
             # we want to resume the previous request
             if call_when_interrupt("1", timestamp=db_queries[0][2]) is False:
                 return ("1", path, "1")
             conn = db.create_connection("./data.db")
-            db.update_request(conn, json.dumps(queries),max_articles,max_age)
+            db.update_request(conn, json.dumps(queries), max_articles, max_age)
             conn = db.create_connection("./data.db")
             db.update_request_stage(conn, json.dumps(queries), 0)
         # CPSR already done
@@ -93,7 +93,7 @@ def get_pub_links(entry: dict,
             if call_when_interrupt("2", timestamp=db_queries[0][2]) is False:
                 return("2", path, "2")
             conn = db.create_connection("./data.db")
-            db.update_request(conn, json.dumps(queries),max_articles,max_age)
+            db.update_request(conn, json.dumps(queries), max_articles, max_age)
             conn = db.create_connection("./data.db")
             db.update_request_stage(conn, json.dumps(queries), 0)
 
@@ -103,6 +103,13 @@ def get_pub_links(entry: dict,
                        json.dumps(queries),
                        max_articles,
                        max_age)
+
+    # we start from beggining so we delete old pdf
+    # output directory does not exist: create it
+    if not os.path.exists(path):
+        os.makedirs(path)
+    for file in os.listdir(path):
+        os.remove(f'{path}/{file}')
 
     # feedback for the user of the search progress
     write_in_logs('informations',
@@ -166,7 +173,7 @@ def get_pub_links(entry: dict,
     # got more links than allowed: ignore extra links
     if len(links) > max_articles:
         links = links[:max_articles]
-   
+
     # Nombre de liens obtenus
     write_in_logs('informations',
                   'Nombre de liens uniques obtenus : ' + str(len(links)))
@@ -233,14 +240,15 @@ def save_pdf_from_links(links: list,
                             'https://www.ncbi.nlm.nih.gov'+prelink)
                     else:
                         pass
-                        #testing
-                        #pdf_links.append(prelink)
+                        # testing
+                        # pdf_links.append(prelink)
                 for pdf in pdf_links:
                     worked = download_pdf(pdf, index, path)
                     if worked:
-                        result_reference.append((f'article{index}', title, date, link))
+                        result_reference.append(
+                            (f'article{index}', title, date, link))
                         index += 1
-        
+
         download_counter += 1
 
     return result_reference
@@ -301,10 +309,6 @@ def download_pdf(link: str,
 
     # successful request: save file
     if response.status_code == 200:
-
-        # output directory does not exist: create it
-        if not os.path.exists(path):
-            os.makedirs(path)
 
         # save pdf file
         file_path = f'{path}/article{index}.pdf'

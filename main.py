@@ -1,13 +1,15 @@
 from typing import Optional
+from sqlalchemy.sql.expression import select
 
 from sqlalchemy.sql.schema import ForeignKey
 from fastapi import FastAPI, status
 from pydantic import BaseModel
+from starlette import requests
 from ui.start import *
 
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session , relationship
+from sqlalchemy.orm import Session, lazyload, relation , relationship , selectinload
 from fastapi.middleware.cors import CORSMiddleware
 
 engine = create_engine("sqlite:///data.db")
@@ -32,6 +34,10 @@ class Category(Base):
     name = Column(String())
     description = Column(String())
 
+    category_to_request = relationship("CategoryToRequest" , back_populates="category")
+
+
+
 class Request(Base):
     __tablename__ = "requests"
     id = Column(Integer , primary_key=True)
@@ -41,17 +47,23 @@ class Request(Base):
     etape = Column(Integer)
     created_at = Column(String)
 
+    category_to_request = relationship("CategoryToRequest" , back_populates="request")
+
 class CategoryToRequest(Base):
     __tablename__ = "category_to_request"
     id = Column(Integer , primary_key=True)
-    id_request = Column(Integer)
-    id_category = Column(Integer)
-    id_result = Column(Integer)
+    id_request = Column(Integer , ForeignKey("requests.id"))
+    id_category = Column(Integer , ForeignKey("categories.id"))
     comment = Column(String)
+
+    request = relationship("Request" , back_populates="category_to_request")
+    results = relationship("Result"  , back_populates="category_to_request")
+    category = relationship("Category" , back_populates="category_to_request")
 
 class Result(Base):
     __tablename__ = "results"
     id = Column(Integer , primary_key=True)
+    cat_to_req_id = Column(Integer , ForeignKey("category_to_request.id"))
     sentence = Column(String)
     article_name = Column(String)
     article_link = Column(String)
@@ -59,6 +71,8 @@ class Result(Base):
     in_what = Column(String)
     method = Column(String)
     subject = Column(String)
+
+    category_to_request = relationship("CategoryToRequest" , back_populates="results")
 
 class Search(BaseModel):
     bw : str
@@ -72,13 +86,9 @@ def read_root():
 @app.post("/search" , status_code=status.HTTP_201_CREATED)
 def search(search : Search):
     a = Start(max_articles=10)
-    request_id = a.traitement(search.bw , search.keywords)
-    return { "request_id" : request_id}
+    result = a.traitement(search.bw , search.keywords)
+    return { "request_id" : result["request_id"] , "state" : result["state"]}
 
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Optional[str] = None):
-    return {"item_id": item_id, "q": q}
 
 @app.get("/requests")
 def get_requests():
@@ -90,11 +100,13 @@ def get_requests():
 @app.get("/requests/{request_id}" )
 def get_request(request_id):
     session = Session(bind=engine , expire_on_commit=False)
-    request = session.query(CategoryToRequest , Request , Result , Category).filter(Request.id == request_id , CategoryToRequest.id_request == Request.id , CategoryToRequest.id_result == Result.id , CategoryToRequest.id_category == Category.id).all()
+
+    request = session.query(CategoryToRequest ).options(selectinload(CategoryToRequest.category) , selectinload(CategoryToRequest.request), selectinload(CategoryToRequest.results)).filter(CategoryToRequest.id_request == request_id).all()
+    #request = session.query(CategoryToRequest.results ).filter(CategoryToRequest.id_request == request_id).all()
+    #request = session.query(CategoryToRequest , Category , Request , Result).filter(CategoryToRequest.id == request_id ,  CategoryToRequest.id_category == Category.id , CategoryToRequest.id_request == Request.id , Result.cat_to_req_id == CategoryToRequest.id).all()
+    #request = session.query(CategoryToRequest , Request , Result , Category).filter(Request.id == request_id , CategoryToRequest.id_request == Request.id , CategoryToRequest.id_result == Result.id , CategoryToRequest.id_category == Category.id).all()
     session.close()
     return request
-
-
 
 @app.get("/categories")
 def get_categories():
