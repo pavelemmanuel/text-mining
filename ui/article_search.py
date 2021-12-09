@@ -63,7 +63,7 @@ class ArticleSearch():
                 #   'téléchargés\n Voulez vous recommencer le '
                 #   'téléchargement ?\n (Si non alors les articles '
                 #   'téléchargés seront analysés)'
-                pass
+                return { "state" : reason , "request_id" : request_id}
 
             elif reason == '2':
                 # TODO: Ask this:
@@ -73,7 +73,7 @@ class ArticleSearch():
                 #   'été traités\n Voulez vous recommencer le '
                 #   'téléchargement ?\n (Si non alors le dernier '
                 #   'rapport sera affiché)'
-                pass
+                return { "state" : reason , "request_id" : request_id}
 
         links, path, queries = get_pub_links(entry, self.pubmed_limit,
                                              self.article_age_var,

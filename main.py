@@ -87,6 +87,8 @@ def read_root():
 def search(search : Search):
     a = Start(max_articles=10)
     result = a.traitement(search.bw , search.keywords)
+    if result.state == None:
+        return {"request_id" : result["request_id"]}
     return { "request_id" : result["request_id"] , "state" : result["state"]}
 
 
