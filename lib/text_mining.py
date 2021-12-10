@@ -5,7 +5,6 @@ from .logs import write_in_logs
 import nltk
 import stanza
 
-
 ##
 
 
@@ -97,6 +96,7 @@ def extraction_phrases(usable_sents, keywords):
 
 
 def extraction_methods_and_subjects(extracted_sents):
+    negation_word_list = ['no ', 'not ', 'none ', 'n\'t ']
     conn = create_connection("./data.db")
     methods = get_methods(conn)
     conn = create_connection("./data.db")
@@ -126,14 +126,45 @@ def extraction_methods_and_subjects(extracted_sents):
                 if word in sentence['sentence']:
                     sentence['in_what'] = word
             sentence['value'] = 0
-            # Dès qu'on trouve un mot de décision on s'arrête
-            # TODO: améliorer avec le nlp pour détecter des négations
+            #Dès qu'on trouve un mot de décision on s'arrête
+            #TODO: améliorer avec le nlp pour détecter des négations
             for decision_word in decision_words[categorie]:
                 if decision_word[0] in sentence['sentence']:
-                    sentence['value'] = decision_word[1]
+                    #Détection des négations avec le nlp
+                    negation_decision_word_bool = False
+                    for negation_word in negation_word_list:
+                        if negation_word in sentence['sentence']:
+                            negation_decision_word_bool = negation_decision_word(
+                                decision_word[0], sentence['sentence'],
+                                negation_word.strip())
+                    if negation_decision_word_bool:
+                        sentence['value'] = 10 - decision_word[1]
+                    else:
+                        sentence['value'] = decision_word[1]
                     break
-
     return extracted_sents
+
+
+def negation_decision_word(decision_word, sentence, negation_word):
+    nlp = stanza.Pipeline('en', verbose=False)
+    doc = nlp(sentence)
+    for sent in doc.sentences:
+        relation = []
+        for token in sent.words:
+            print("decision word: " + decision_word + " negation_word: " +
+                  negation_word + " word: " + token.text)
+            relation.append([token.id, token.text, token.head, token.deprel])
+            if token.text == negation_word:
+                print("negation")
+                id_negation_word = token.id
+            elif token.text == decision_word:
+                print("decision")
+                id_decision_word = token.id
+        if relation[id_negation_word -
+                    1][2] == id_decision_word and relation[id_negation_word -
+                                                           1][3] == 'advmod':
+            return True
+    return False
 
 
 def our_nlp(extracted_sents, keywords):

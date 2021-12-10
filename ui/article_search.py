@@ -1,4 +1,3 @@
-from sqlalchemy.sql.sqltypes import Integer
 from lib.extraction import (convert_entry_to_queries, get_pub_links,
                             save_pdf_from_links)
 from lib.logs import create_logs, write_in_logs
@@ -17,8 +16,8 @@ import stanza
 class ArticleSearch():
     def __init__(self, max_age: int = 0, max_articles: int = 1000):
         # common elements
-        self.article_age_var = max_age
-        self.pubmed_limit = max_articles
+        self.max_age = max_age
+        self.max_articles = max_articles
         create_logs()
         self.check_update
 
@@ -31,58 +30,50 @@ class ArticleSearch():
 # INPUT PROCESSING
 # ============================================================================
 
+    def traitement_recherche(self, entry, etape_: int, force: bool):
 
-    def traitement_recherche(self, entry):
-        """
-        """
-        def call_when_interrupt(reason: str, request_id : Integer = None,  **kwargs):
-            """
-            Called when finish to reset the GUI window
+        queries = convert_entry_to_queries(entry)
 
-            :param reason: Reason to why it is finished, can be 'success' or
-                           'already done'
-            """
+        if not force:
+            # Check if the request already exist
+            conn = db.create_connection("./data.db")
+            db_queries = db.get_request(conn, json.dumps(queries))
+            if db_queries != []:
+                etape = db_queries[0][5]
+                if etape == 0:
+                    conn = db.create_connection("./data.db")
+                    db.update_request(conn, json.dumps(queries),
+                                      self.max_articles, self.max_age)
+                # already downloaded pdfs
+                elif etape == 1:
+                    return (1, db_queries[0][2], db_queries[0][0]
+                            )  #return etape and timestamp and request_id
 
-            # too bad their is no switch
-            if reason == 'success' or reason == 'no link':
-                # TODO: do something when the result is available
-                return { "state" : reason , "request_id" : request_id}
+                # CPSR already done
+                elif etape == 2:
+                    # already finished so we want to cancel
+                    return (2, db_queries[0][2], db_queries[0][0]
+                            )  #return etape and timestamp and request_id
 
-            if reason == '0':
-                # TODO: Ask this:
-                #   'Information',
-                #   'Recherche déjà effectuée mais abandonnée en cours de '
-                #   'processus\n reprise à zéro !'
-                return { "state" : reason , "request_id" : request_id}
+            else:
+                conn = db.create_connection("./data.db")
+                db.add_request(conn, json.dumps(queries), self.max_articles,
+                               self.max_age)
 
-            elif reason == '1':
-                # TODO: Ask this:
-                #   Attention',
-                #   'La recherche à déjà été effectuée le '
-                #   f'{kwargs["timestamp"]} et les articles sont déjà '
-                #   'téléchargés\n Voulez vous recommencer le '
-                #   'téléchargement ?\n (Si non alors les articles '
-                #   'téléchargés seront analysés)'
-                return { "state" : reason , "request_id" : request_id}
+        if etape_ == 0:
+            # output path
+            path = f'./pdf/PubMed/{queries}'
+            links, queries = get_pub_links(entry, self.max_articles,
+                                           self.max_age)
+            if links == []:
+                return
 
-            elif reason == '2':
-                # TODO: Ask this:
-                #   'Attention',
-                #   'La recherche à déjà été effectuée le '
-                #   f'{kwargs["timestamp"]} et les articles ont déjà '
-                #   'été traités\n Voulez vous recommencer le '
-                #   'téléchargement ?\n (Si non alors le dernier '
-                #   'rapport sera affiché)'
-                return { "state" : reason , "request_id" : request_id}
-
-        links, path, queries = get_pub_links(entry, self.pubmed_limit,
-                                             self.article_age_var,
-                                             call_when_interrupt)
-        if links == []:
-            call_when_interrupt('no links')
-            return
-
-        if links not in ['1', '2'] and queries not in ['1', '2']:
+            if force:
+                conn = db.create_connection("./data.db")
+                db.update_request(conn, json.dumps(queries), self.max_articles,
+                                  self.max_age)
+                conn = db.create_connection("./data.db")
+                db.update_request_stage(conn, json.dumps(queries), 0)
             # references of the articles
             ref = save_pdf_from_links(links, path)
             df = pd.DataFrame(ref,
@@ -94,8 +85,19 @@ class ArticleSearch():
             conn = db.create_connection('./data.db')
             # Pdfs downloaded, we save it for later
             db.update_request_stage(conn, json.dumps(queries), 1)
+            etape_ = 1
 
-        if links != '2' and queries != '2':
+        if etape_ == 1:
+            # output path
+            path = f'./pdf/PubMed/{queries}'
+
+            if force:
+                conn = db.create_connection("./data.db")
+                db.update_request(conn, json.dumps(queries), self.max_articles,
+                                  self.max_age)
+                conn = db.create_connection("./data.db")
+                db.update_request_stage(conn, json.dumps(queries), 0)
+
             conn = db.create_connection("./data.db")
             categories = [
                 categorie[2] for categorie in db.get_categories(conn)
@@ -120,7 +122,7 @@ class ArticleSearch():
             conn = db.create_connection("./data.db")
             request_id = db.get_request(conn, json.dumps(queries))[0][0]
             conn = db.create_connection("./data.db")
-            db.add_category_to_request(conn,request_id)
+            db.add_category_to_request(conn, request_id)
             for categorie in result.keys():
                 conn = db.create_connection("./data.db")
                 category_id = db.get_category_id(conn,
@@ -138,8 +140,8 @@ class ArticleSearch():
                         link = ligne.iloc[0]['link']
                     for sentence in result[categorie][article]:
                         conn = db.create_connection("./data.db")
-                        db.add_result(conn, request_id,category_id,sentence['sentence'],
-                                      title, link,
+                        db.add_result(conn, request_id, category_id,
+                                      sentence['sentence'], title, link,
                                       sentence['value'], sentence['in_what'],
                                       json.dumps(sentence['methods']),
                                       json.dumps(sentence['subjects']))[0][0]
@@ -149,10 +151,10 @@ class ArticleSearch():
             db.update_request_stage(conn, json.dumps(queries), 2)
 
         # afficher le rapport
-        return call_when_interrupt('success' , request_id=request_id)
+        conn = db.create_connection("./data.db")
+        return 10, "10", db.get_request(conn, json.dumps(queries))[0][0]
 
-
-    def traitement_mots(self, bw, args):
+    def traitement_mots(self, bw, args, etape_, force):
         """
         """
         if bw == '':
@@ -164,7 +166,7 @@ class ArticleSearch():
             'keywords': args.replace(' ', '').split('/'),
         }
 
-        return self.traitement_recherche(entry)
+        return self.traitement_recherche(entry, etape_, force)
 
     def get_base_from_queries(self, str_queries: str):
         """

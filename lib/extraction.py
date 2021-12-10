@@ -9,9 +9,12 @@ import requests
 import time
 
 # Variable globale
-HEADER = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) '
-                        'AppleWebKit/537.36 (KHTML, like Gecko) '
-                        'Chrome/50.0.2661.102 Safari/537.36'}
+HEADER = {
+    'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/50.0.2661.102 Safari/537.36'
+}
 
 
 def convert_entry_to_queries(entry: dict) -> list:
@@ -48,10 +51,7 @@ def get_element_text(soup: BeautifulSoup, tag: str, class_: str):
     return ''
 
 
-def get_pub_links(entry: dict,
-                  max_articles: int,
-                  max_age: int,
-                  call_when_interrupt) -> tuple:
+def get_pub_links(entry: dict, max_articles: int, max_age: int) -> tuple:
     """
     Get url of PubMed articles based on a keyword search
 
@@ -68,41 +68,6 @@ def get_pub_links(entry: dict,
 
     # output path
     path = f'./pdf/PubMed/{queries}'
-
-    # Check if the request already exist
-    conn = db.create_connection("./data.db")
-    db_queries = db.get_request(conn, json.dumps(queries))
-    if db_queries != []:
-        etape = db_queries[0][5]
-        if etape == 0:
-            call_when_interrupt("0")
-            conn = db.create_connection("./data.db")
-            db.update_request(conn, json.dumps(queries), max_articles, max_age)
-        # already downloaded pdfs
-        elif etape == 1:
-            # we want to resume the previous request
-            if call_when_interrupt("1", timestamp=db_queries[0][2]) is False:
-                return ("1", path, "1")
-            conn = db.create_connection("./data.db")
-            db.update_request(conn, json.dumps(queries), max_articles, max_age)
-            conn = db.create_connection("./data.db")
-            db.update_request_stage(conn, json.dumps(queries), 0)
-        # CPSR already done
-        elif etape == 2:
-            # already finished so we want to cancel
-            if call_when_interrupt("2", timestamp=db_queries[0][2]) is False:
-                return("2", path, "2")
-            conn = db.create_connection("./data.db")
-            db.update_request(conn, json.dumps(queries), max_articles, max_age)
-            conn = db.create_connection("./data.db")
-            db.update_request_stage(conn, json.dumps(queries), 0)
-
-    else:
-        conn = db.create_connection("./data.db")
-        db.add_request(conn,
-                       json.dumps(queries),
-                       max_articles,
-                       max_age)
 
     # we start from beggining so we delete old pdf
     # output directory does not exist: create it
@@ -133,40 +98,38 @@ def get_pub_links(entry: dict,
 
         # get results number
         nbr_of_results = 0
-        results_soup = (soup.find('div', class_='results-amount')
-                            .find('span', class_='value'))
+        results_soup = (soup.find('div', class_='results-amount').find(
+            'span', class_='value'))
         if results_soup is not None:
             nbr_of_results = int(results_soup.text.replace(',', ''))
-        nbr_of_pages = math.ceil(
-            min(nbr_of_results, max_articles) / 200
-        )
+        nbr_of_pages = math.ceil(min(nbr_of_results, max_articles) / 200)
 
-        write_in_logs('informations',
-                      'Recherche effectuée sur PubMed avec une limite de '
-                      f'{max_articles} articles et un âge maximal de '
-                      f'{max_age if max_age!=0 else "--" } ans')
+        write_in_logs(
+            'informations',
+            'Recherche effectuée sur PubMed avec une limite de '
+            f'{max_articles} articles et un âge maximal de '
+            f'{max_age if max_age!=0 else "--" } ans')
 
-        for i in range(1, nbr_of_pages+1):
+        for i in range(1, nbr_of_pages + 1):
             page_counter += 1
 
             # request and parse search page
             try:
                 url = 'https://pubmed.ncbi.nlm.nih.gov/'
-                page = requests.get(url, headers=HEADER, params={
-                    **params,
-                    'page': i,
-                })
+                page = requests.get(url,
+                                    headers=HEADER,
+                                    params={
+                                        **params,
+                                        'page': i,
+                                    })
                 soup = BeautifulSoup(page.content, 'html.parser')
             # any error occurred: warn user
             except Exception:
-                write_in_logs('erreurs',
-                              'Chargement d\'une page impossible')
+                write_in_logs('erreurs', 'Chargement d\'une page impossible')
             # get the urls of the pages and add them to the result
             pages_awaiting = soup.select('a.docsum-title')
             for page in pages_awaiting:
-                links.append(
-                    'https://pubmed.ncbi.nlm.nih.gov' + page['href']
-                )
+                links.append('https://pubmed.ncbi.nlm.nih.gov' + page['href'])
 
     links = list(dict.fromkeys(links))
 
@@ -179,11 +142,10 @@ def get_pub_links(entry: dict,
                   'Nombre de liens uniques obtenus : ' + str(len(links)))
 
     # return result
-    return links, path, queries
+    return links, queries
 
 
-def save_pdf_from_links(links: list,
-                        path: str) -> list:
+def save_pdf_from_links(links: list, path: str) -> list:
     """
     Download and save the pdf files of articles from their urls
 
@@ -206,8 +168,8 @@ def save_pdf_from_links(links: list,
         # try to find the publication link in the page
         full_publication_link = None
         if soup.find('a', class_='link-item pmc') is not None:
-            full_publication_link = soup.find(
-                'a', class_='link-item pmc')['href']
+            full_publication_link = soup.find('a',
+                                              class_='link-item pmc')['href']
         elif soup.find('a', class_='link-item pmc dialog-focus') is not None:
             full_publication_link = soup.find(
                 'a', class_='link-item pmc dialog-focus')['href']
@@ -218,10 +180,9 @@ def save_pdf_from_links(links: list,
 
             # could not get document page: warn user
             if not r[0]:
-                write_in_logs('erreurs',
-                              '-->Connection refusée à {}'.format(
-                                  full_publication_link
-                              ))
+                write_in_logs(
+                    'erreurs',
+                    '-->Connection refusée à {}'.format(full_publication_link))
 
             # got document page: parse and download pdf(s)
             else:
@@ -229,15 +190,14 @@ def save_pdf_from_links(links: list,
                 soup = BeautifulSoup(page.content, 'html.parser')
                 date = get_element_text(soup, 'span', 'fm-vol-iss-date')
                 pdf_prelinks = [
-                    a.get('href')
-                    for a in soup.select('li a')
+                    a.get('href') for a in soup.select('li a')
                     if ('.pdf' in a.get('href'))
                 ]
                 pdf_links = []
                 for prelink in pdf_prelinks:
                     if prelink[0] == '/':
-                        pdf_links.append(
-                            'https://www.ncbi.nlm.nih.gov'+prelink)
+                        pdf_links.append('https://www.ncbi.nlm.nih.gov' +
+                                         prelink)
                     else:
                         pass
                         # testing
@@ -279,16 +239,14 @@ def request_pdf(link: str, tries: int = 3) -> tuple:
 
         # not exceeded number of tries: wait before trying again
         if tries > 0:
-            time.sleep(9 - 2*tries)
+            time.sleep(9 - 2 * tries)
             return request_pdf(link, tries)
 
     # failure as fallback
     return False, ''
 
 
-def download_pdf(link: str,
-                 index: int,
-                 path: str) -> bool:
+def download_pdf(link: str, index: int, path: str) -> bool:
     """
     Make the download of an article pdf
 
@@ -303,8 +261,7 @@ def download_pdf(link: str,
 
     # unsuccessful request: warn user and abort
     except Exception:
-        write_in_logs('erreurs',
-                      'Impossible d\'accéder au pdf : ' + link)
+        write_in_logs('erreurs', 'Impossible d\'accéder au pdf : ' + link)
         return False
 
     # successful request: save file

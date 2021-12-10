@@ -1,4 +1,5 @@
 from typing import Optional
+from pydantic.types import OptionalInt
 from sqlalchemy.sql.expression import select
 
 from sqlalchemy.sql.schema import ForeignKey
@@ -76,7 +77,10 @@ class Result(Base):
 
 class Search(BaseModel):
     bw : str
+    force : bool = False
+    step : int = 0
     keywords : Optional[str]
+    nb_article : Optional[int] = 1000
 
 
 @app.get("/")
@@ -85,17 +89,23 @@ def read_root():
 
 @app.post("/search" , status_code=status.HTTP_201_CREATED)
 def search(search : Search):
-    a = Start(max_articles=10)
-    result = a.traitement(search.bw , search.keywords)
-    if result.state == None:
-        return {"request_id" : result["request_id"]}
-    return { "request_id" : result["request_id"] , "state" : result["state"]}
+    a = Start(max_articles=search.nb_article)
+    step = a.traitement(search.bw , search.keywords , search.step , search.force)
+    if step[0] == 2 :
+        #Soit il a déjà été fait on le lui demande
+        return {"state" : step[0] , "timestamp"  :  step[1] , "request_id" : step[2]}
+    elif step[0] == 10 :
+        #ca a marché
+        return {"state" : step[0] , "timestamp" : step[1] , "request_id" : step[2]}
+    elif step[0] == 1 :
+        #telechargé pas analysé
+        return {"state" : step[0] , "timestamp" : step[1] , "request_id" : step[2]}
 
 
 @app.get("/requests")
 def get_requests():
     session = Session(bind=engine , expire_on_commit=False)
-    requests = session.query(Request).all()
+    requests = session.query(Request).filter(Request.etape > 0).all()
     session.close()
     return requests
 
