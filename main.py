@@ -8,10 +8,14 @@ from pydantic import BaseModel
 from starlette import requests
 from ui.start import *
 
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String , desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, lazyload, relation , relationship , selectinload
 from fastapi.middleware.cors import CORSMiddleware
+import os
+import shutil
+
+import data_gestion.create_database as db_create
 
 engine = create_engine("sqlite:///data.db")
 
@@ -61,6 +65,7 @@ class CategoryToRequest(Base):
     results = relationship("Result"  , back_populates="category_to_request")
     category = relationship("Category" , back_populates="category_to_request")
 
+
 class Result(Base):
     __tablename__ = "results"
     id = Column(Integer , primary_key=True)
@@ -82,6 +87,9 @@ class Search(BaseModel):
     keywords : Optional[str]
     nb_article : Optional[int] = 1000
 
+class Comment(BaseModel):
+    comment : int
+
 
 @app.get("/")
 def read_root():
@@ -102,12 +110,24 @@ def search(search : Search):
         return {"state" : step[0] , "timestamp" : step[1] , "request_id" : step[2]}
 
 
+@app.put("/cat-to-request/{cat_req_id}")
+def update_cat_to_req(cat_req_id :int , comment : Comment ):
+    session = Session(bind=engine , expire_on_commit=False)
+    cat_req = session.query(CategoryToRequest).get(cat_req_id)
+    cat_req.comment = comment.comment
+    session.commit()
+    session.close()
+    return cat_req
+
+
+
 @app.get("/requests")
 def get_requests():
     session = Session(bind=engine , expire_on_commit=False)
-    requests = session.query(Request).filter(Request.etape > 0).all()
+    requests = session.query(Request).filter(Request.etape == 2).order_by(desc(Request.id)).all()
     session.close()
     return requests
+
 
 @app.get("/requests/{request_id}" )
 def get_request(request_id):
@@ -120,9 +140,32 @@ def get_request(request_id):
     session.close()
     return request
 
+@app.delete("/requests/{request_id}")
+def delete_request(request_id):
+    session = Session(bind=engine , expire_on_commit=False)
+    session.query(Request).filter(Request.id == request_id).delete()
+
+
 @app.get("/categories")
 def get_categories():
     session = Session(bind=engine , expire_on_commit=False)
     categories = session.query(Category).all()
     session.close()
     return categories
+
+@app.post("/reset")
+def reinitialiser():
+    # try:
+    #     shutil.rmtree("pdf")
+    # except OSError as e:
+    #     print("Error: %s - %s." % (e.filename, e.strerror))
+
+    if os.path.exists("./data.db"):
+        print("Deleting file")
+        os.remove("./data.db")
+        if not os.path.isfile("./data.db"):
+            db_create.main()
+            return { "result" : 1}
+    print("The file does not exist")
+    return { "result" : 0}
+    

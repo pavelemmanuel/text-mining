@@ -454,16 +454,16 @@ def main():
                                         in_what str,
                                         method text,
                                         subject text,
-                                        FOREIGN KEY (cat_to_req_id) REFERENCES category_to_request (id)
+                                        FOREIGN KEY (cat_to_req_id) REFERENCES category_to_request (id) ON DELETE CASCADE
                                         ); """
 
     sql_create_category_to_request = """ CREATE TABLE IF NOT EXISTS category_to_request (
                                             id integer primary key autoincrement not null,
                                             id_request int NOT NULL,
                                             id_category int NOT NULL,
-                                            comment text,
-                                            FOREIGN KEY (id_request) REFERENCES requests (id),
-                                            FOREIGN KEY (id_category) REFERENCES categories (id)
+                                            comment int,
+                                            FOREIGN KEY (id_request) REFERENCES requests (id) ON DELETE CASCADE ,
+                                            FOREIGN KEY (id_category) REFERENCES categories (id) ON DELETE CASCADE
                                             ); """
 
     sql_create_methods_table = """ CREATE TABLE IF NOT EXISTS methods (

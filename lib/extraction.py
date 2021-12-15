@@ -7,6 +7,15 @@ import json
 import os
 import requests
 import time
+import pusher
+
+pusher_client = pusher.Pusher(
+  app_id='1315518',
+  key='7e50cf2141feb61dacee',
+  secret='3146aba9ab089e4efbd6',
+  cluster='mt1',
+  ssl=True
+)
 
 # Variable globale
 HEADER = {
@@ -158,7 +167,11 @@ def save_pdf_from_links(links: list, path: str) -> list:
     index = 0
     download_counter = 0
     for link in links:
-
+        # pusher_client.trigger('my-channel', 'my-event', 'Downloading pdf ' + str(download_counter+1))
+        try :
+            pusher_client.trigger('my-channel', 'my-event', 'Downloading pdf ' + str(download_counter+1) + ' / ' + str(len(links)))
+        except Exception:
+            print("Cant connect to pusher")
         # request and parse pdf url
         page = requests.get(link, headers=HEADER)
         soup = BeautifulSoup(page.content, 'html.parser')
