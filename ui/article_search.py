@@ -72,8 +72,6 @@ class ArticleSearch():
                 conn = db.create_connection("./data.db")
                 db.update_request(conn, json.dumps(queries), self.max_articles,
                                   self.max_age)
-                conn = db.create_connection("./data.db")
-                db.update_request_stage(conn, json.dumps(queries), 0)
             # references of the articles
             ref = save_pdf_from_links(links, path)
             df = pd.DataFrame(ref,
@@ -95,8 +93,6 @@ class ArticleSearch():
                 conn = db.create_connection("./data.db")
                 db.update_request(conn, json.dumps(queries), self.max_articles,
                                   self.max_age)
-                conn = db.create_connection("./data.db")
-                db.update_request_stage(conn, json.dumps(queries), 0)
 
             conn = db.create_connection("./data.db")
             categories = [

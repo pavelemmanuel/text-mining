@@ -17,6 +17,8 @@ import shutil
 
 import data_gestion.create_database as db_create
 
+import uvicorn
+
 engine = create_engine("sqlite:///data.db")
 
 Base = declarative_base()
@@ -168,4 +170,11 @@ def reinitialiser():
             return { "result" : 1}
     print("The file does not exist")
     return { "result" : 0}
+
+def serve():
+    """Serve the web application."""
+    uvicorn.run(webapp)
+
+if __name__ == "__main__":
+    serve()
     
