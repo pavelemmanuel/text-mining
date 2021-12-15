@@ -170,11 +170,3 @@ def reinitialiser():
             return { "result" : 1}
     print("The file does not exist")
     return { "result" : 0}
-
-def serve():
-    """Serve the web application."""
-    uvicorn.run(webapp)
-
-if __name__ == "__main__":
-    serve()
-    
